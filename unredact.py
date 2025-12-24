@@ -99,14 +99,22 @@ class PDFBoxReplacer:
         for page_num in range(len(self.pdf_doc)):
             page = self.pdf_doc[page_num]
             
-            # Simply extract ALL text from the page
-            text = page.get_text()
+            # Extract text preserving layout
+            text = page.get_text("blocks")  # Get text blocks which preserve paragraphs
             
-            if text.strip():
-                results_by_page[page_num + 1] = text.strip()
+            formatted_text = []
+            for block in text:
+                if block[6] == 0:  # block[6] is the block type; 0 = text
+                    block_text = block[4].strip()  # block[4] is the text content
+                    if block_text:
+                        formatted_text.append(block_text)
+            
+            if formatted_text:
+                # Join blocks with double newlines to preserve paragraph breaks
+                results_by_page[page_num + 1] = "\n\n".join(formatted_text)
         
         # Display results
-        self.show_unredacted_results(results_by_page)
+        self.show_unredacted_results(results_by_page)   
 
     def show_unredacted_results(self, results_by_page):
         """Show extracted text in a new window"""
