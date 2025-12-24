@@ -24,3 +24,4 @@ The executable form was compiled with Nuitka, you may need to install [Python](h
 <img width="1382" height="804" alt="image" src="https://github.com/user-attachments/assets/5bd69540-6d14-4916-a9fc-fbbbebe08891" />
 <img width="889" height="720" alt="image" src="https://github.com/user-attachments/assets/9b365ab6-5297-4b0d-9f02-b59b293e2482" />
 <img width="1481" height="824" alt="image" src="https://github.com/user-attachments/assets/eaf936bd-ab55-460a-b61c-318f5d07b1a2" />
+<img width="1533" height="1146" alt="image" src="https://github.com/user-attachments/assets/993e5df7-4e53-45e4-9136-e8ee7c1e8406" />
