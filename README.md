@@ -19,3 +19,4 @@ The executable form was compiled with Nuitka, you may need to install [Python](h
 
 <img width="976" height="808" alt="image" src="https://github.com/user-attachments/assets/b7628f39-7115-4b4f-bd9c-f2977650501e" />
 <img width="1382" height="804" alt="image" src="https://github.com/user-attachments/assets/5bd69540-6d14-4916-a9fc-fbbbebe08891" />
+<img width="889" height="720" alt="image" src="https://github.com/user-attachments/assets/9b365ab6-5297-4b0d-9f02-b59b293e2482" />
