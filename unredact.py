@@ -24,7 +24,7 @@ class PDFBoxReplacer:
         self.current_page = 0
         self.all_boxes = []
         self.selected_box = None
-        self.zoom = 1.5
+        self.zoom = 1.0  # Changed from 1.5 to 1.0
         
         self.setup_ui()
         
@@ -37,6 +37,14 @@ class PDFBoxReplacer:
         tk.Button(toolbar, text="Save PDF", command=self.save_pdf).pack(side=tk.LEFT, padx=2)
         tk.Button(toolbar, text="Previous Page", command=self.prev_page).pack(side=tk.LEFT, padx=2)
         tk.Button(toolbar, text="Next Page", command=self.next_page).pack(side=tk.LEFT, padx=2)
+        
+        # Zoom controls
+        tk.Button(toolbar, text="Zoom In (+)", command=self.zoom_in).pack(side=tk.LEFT, padx=2)
+        tk.Button(toolbar, text="Zoom Out (-)", command=self.zoom_out).pack(side=tk.LEFT, padx=2)
+        tk.Button(toolbar, text="Fit Width", command=self.zoom_fit_width).pack(side=tk.LEFT, padx=2)
+        
+        self.zoom_label = tk.Label(toolbar, text=f"Zoom: {int(self.zoom * 100)}%")
+        self.zoom_label.pack(side=tk.LEFT, padx=10)
         
         self.page_label = tk.Label(toolbar, text="No PDF loaded")
         self.page_label.pack(side=tk.LEFT, padx=10)
@@ -60,13 +68,57 @@ class PDFBoxReplacer:
         h_scroll.pack(side=tk.BOTTOM, fill=tk.X, padx=5)
         self.canvas.configure(xscrollcommand=h_scroll.set)
         
-        # Bind click event
+        # Bind events
         self.canvas.bind("<Button-1>", self.on_canvas_click)
+        self.canvas.bind("<MouseWheel>", self.on_mousewheel)  # Windows/Mac
+        self.canvas.bind("<Button-4>", self.on_mousewheel)    # Linux scroll up
+        self.canvas.bind("<Button-5>", self.on_mousewheel)    # Linux scroll down
+        
+        # Bind keyboard shortcuts
+        self.root.bind("<Control-plus>", lambda e: self.zoom_in())
+        self.root.bind("<Control-equal>", lambda e: self.zoom_in())  # + without shift
+        self.root.bind("<Control-minus>", lambda e: self.zoom_out())
+        self.root.bind("<Control-0>", lambda e: self.zoom_fit_width())
         
         # Status bar
         self.status_label = tk.Label(self.root, text="Click 'Open PDF' to begin", 
                                      bd=1, relief=tk.SUNKEN, anchor=tk.W)
         self.status_label.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def on_mousewheel(self, event):
+        """Handle mouse wheel zoom with Ctrl held"""
+        if event.state & 0x0004:  # Ctrl key is held
+            if event.delta > 0 or event.num == 4:  # Scroll up
+                self.zoom_in()
+            elif event.delta < 0 or event.num == 5:  # Scroll down
+                self.zoom_out()
+            return "break"  # Prevent default scrolling
+    
+    def zoom_in(self):
+        """Increase zoom level"""
+        self.zoom = min(self.zoom * 1.25, 5.0)  # Max 500%
+        self.zoom_label.config(text=f"Zoom: {int(self.zoom * 100)}%")
+        self.load_page()
+    
+    def zoom_out(self):
+        """Decrease zoom level"""
+        self.zoom = max(self.zoom / 1.25, 0.25)  # Min 25%
+        self.zoom_label.config(text=f"Zoom: {int(self.zoom * 100)}%")
+        self.load_page()
+    
+    def zoom_fit_width(self):
+        """Fit page width to window"""
+        if not self.pdf_doc:
+            return
+        
+        page = self.pdf_doc[self.current_page]
+        canvas_width = self.canvas.winfo_width()
+        page_width = page.rect.width
+        
+        self.zoom = (canvas_width - 20) / page_width  # 20px padding
+        self.zoom = max(0.25, min(self.zoom, 5.0))  # Clamp between 25% and 500%
+        self.zoom_label.config(text=f"Zoom: {int(self.zoom * 100)}%")
+        self.load_page()
         
     def open_pdf(self):
         filepath = filedialog.askopenfilename(
@@ -107,6 +159,10 @@ class PDFBoxReplacer:
         if not self.pdf_doc:
             return
         
+        # Store current scroll position
+        x_scroll = self.canvas.xview()[0]
+        y_scroll = self.canvas.yview()[0]
+        
         page = self.pdf_doc[self.current_page]
         self.page_label.config(text=f"Page {self.current_page + 1} of {len(self.pdf_doc)}")
         
@@ -130,6 +186,10 @@ class PDFBoxReplacer:
         
         # Update scroll region
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+        
+        # Restore scroll position
+        self.canvas.xview_moveto(x_scroll)
+        self.canvas.yview_moveto(y_scroll)
     
     def find_boxes_on_page(self, page):
         """Find all black rectangles on the page using image processing"""
@@ -274,8 +334,13 @@ class PDFBoxReplacer:
         """Apply replacements to current page by modifying the page image"""
         page = self.pdf_doc[self.current_page]
         
-        # Render page to image at high resolution
-        mat = fitz.Matrix(2, 2)
+        # Get the actual page dimensions
+        page_rect = page.rect
+        page_width = page_rect.width
+        page_height = page_rect.height
+        
+        # Render page to image at ACTUAL SIZE (1x, not 2x)
+        mat = fitz.Matrix(1, 1)
         pix = page.get_pixmap(matrix=mat)
         
         # Convert to PIL Image
@@ -294,20 +359,18 @@ class PDFBoxReplacer:
                abs(height - target_height) <= tolerance:
                 
                 rect = box["rect"]
-                # Scale coordinates by 2 (since we rendered at 2x)
-                x0 = rect.x0 * 2
-                y0 = rect.y0 * 2
-                x1 = rect.x1 * 2
-                y1 = rect.y1 * 2
+                x0 = rect.x0
+                y0 = rect.y0
+                x1 = rect.x1
+                y1 = rect.y1
                 
                 # Draw white rectangle
-                draw.rectangle([x0, y0, x1, y1], fill='white', outline='black', width=2)
+                draw.rectangle([x0, y0, x1, y1], fill='white', outline='black', width=1)
                 
                 # Add text
-                font_size = int(min(height * 0.6, 12) * 2)  # Scale font size too
+                font_size = int(min(height * 0.6, 12))
                 try:
                     from PIL import ImageFont
-                    # Try to use a default font
                     font = ImageFont.truetype("arial.ttf", font_size)
                 except:
                     font = ImageFont.load_default()
@@ -323,19 +386,23 @@ class PDFBoxReplacer:
                 count += 1
         
         if count > 0:
-            # Convert back to bytes
+            # Save modified image
             img_bytes = io.BytesIO()
             img.save(img_bytes, format='PNG')
             img_bytes.seek(0)
             
-            # Replace the page with the modified image
-            img_pdf = fitz.open("png", img_bytes.read())
-            pdf_bytes = img_pdf.convert_to_pdf()
-            img_pdf.close()
+            # Create a new blank page with exact dimensions
+            temp_pdf = fitz.open()
+            new_page = temp_pdf.new_page(width=page_width, height=page_height)
             
-            # Replace the current page
+            # Insert the image to fill the entire page
+            new_page.insert_image(page_rect, stream=img_bytes.read())
+            
+            # Replace the page in the main document
             self.pdf_doc.delete_page(self.current_page)
-            self.pdf_doc.insert_pdf(fitz.open("pdf", pdf_bytes), from_page=0, to_page=0, start_at=self.current_page)
+            self.pdf_doc.insert_pdf(temp_pdf, from_page=0, to_page=0, start_at=self.current_page)
+            
+            temp_pdf.close()
         
         return count
     
