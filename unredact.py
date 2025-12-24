@@ -254,62 +254,53 @@ HTML files saved to: {output_dir}
         prefix = base_name[:split_index] if split_index > 0 else ""
         number_str = base_name[split_index:] if split_index < len(base_name) else ""
         
-        # Generate Next and Previous links
-        prev_link = None
-        next_link = None
+        # Always generate Next and Previous links (even if files don't exist yet)
+        prev_filename = ""
+        next_filename = ""
         
         if number_str and number_str.isdigit():
-            # Count leading zeros in the number part
-            leading_zeros = ""
-            for char in number_str:
-                if char == '0':
-                    leading_zeros += '0'
-                else:
-                    break
-            
-            current_num = int(number_str)
+            # Count total digits and leading zeros
             total_digits = len(number_str)
+            current_num = int(number_str)
             
             # Previous file (current - 1)
-            if current_num > 0:
-                prev_num = current_num - 1
-                # Preserve the same number of digits with leading zeros
-                prev_num_str = str(prev_num).zfill(total_digits)
-                prev_filename = f"{prefix}{prev_num_str}.html"
-                # Check if the file exists in output directory
-                prev_path = os.path.join(output_dir, prev_filename)
-                if os.path.exists(prev_path):
-                    prev_link = prev_filename
+            prev_num = current_num - 1
+            # Preserve the same number of digits with leading zeros
+            prev_num_str = str(prev_num).zfill(total_digits)
+            prev_filename = f"{prefix}{prev_num_str}.html"
             
             # Next file (current + 1)
             next_num = current_num + 1
             # Preserve the same number of digits with leading zeros
             next_num_str = str(next_num).zfill(total_digits)
             next_filename = f"{prefix}{next_num_str}.html"
-            # Check if the file exists in output directory
-            next_path = os.path.join(output_dir, next_filename)
-            if os.path.exists(next_path):
-                next_link = next_filename
         
-        # Create navigation buttons HTML
+        # Create navigation buttons HTML - ALWAYS create them
         nav_html = ""
-        if prev_link or next_link:
-            nav_html = """
+        nav_html = """
         <div class="navigation">
             <div class="nav-buttons">
     """
-            if prev_link:
-                nav_html += f"""            <a href="{html.escape(prev_link)}" class="nav-button prev">← Previous File</a>
+        if prev_filename:
+            # ALWAYS create Previous button, even if file doesn't exist yet
+            nav_html += f"""            <a href="{html.escape(prev_filename)}" class="nav-button prev">← Previous File</a>
     """
-            
-            nav_html += f"""            <a href="index.html" class="nav-button home">Index</a>
+        else:
+            nav_html += f"""            <span class="nav-button disabled">← No Previous</span>
     """
-            
-            if next_link:
-                nav_html += f"""            <a href="{html.escape(next_link)}" class="nav-button next">Next File →</a>
+        
+        nav_html += f"""            <a href="index.html" class="nav-button home">Index</a>
     """
-            
-            nav_html += """        </div>
+        
+        if next_filename:
+            # ALWAYS create Next button, even if file doesn't exist yet
+            nav_html += f"""            <a href="{html.escape(next_filename)}" class="nav-button next">Next File →</a>
+    """
+        else:
+            nav_html += f"""            <span class="nav-button disabled">No Next →</span>
+    """
+        
+        nav_html += """        </div>
         </div>
     """
         
@@ -335,15 +326,6 @@ HTML files saved to: {output_dir}
                 padding: 20px;
                 border-radius: 5px;
                 margin-bottom: 20px;
-                position: relative;
-            }}
-            .file-number {{
-                position: absolute;
-                top: 20px;
-                right: 20px;
-                font-size: 24px;
-                font-weight: bold;
-                color: #3498db;
             }}
             .warning {{
                 background-color: #fff3cd;
@@ -377,7 +359,7 @@ HTML files saved to: {output_dir}
             }}
             .navigation {{
                 margin-top: 30px;
-                margin-bottom: 20px;
+                margin-bottom: 30px;
             }}
             .nav-buttons {{
                 display: flex;
@@ -412,6 +394,11 @@ HTML files saved to: {output_dir}
             .nav-button.next:hover {{
                 background-color: #229954;
             }}
+            .nav-button.disabled {{
+                background-color: #cccccc;
+                color: #666666;
+                cursor: not-allowed;
+            }}
             .file-info {{
                 background-color: #e8f4fc;
                 padding: 10px;
@@ -434,7 +421,6 @@ HTML files saved to: {output_dir}
             <h1>Extracted Text: {html.escape(pdf_name)}</h1>
             <p>Original PDF: {html.escape(pdf_path)}</p>
             <p>Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>
-            <div class="file-number">{html.escape(base_name)}</div>
         </div>
         
         <div class="file-info">
@@ -443,13 +429,23 @@ HTML files saved to: {output_dir}
             <p><strong>Extraction Method:</strong> {"OCR (Image-based extraction)" if ocr_mode else "Text layer extraction"}</p>
         </div>
         
+        {nav_html}
+        
         <div class="sequence-info">
-            <p><strong>File Sequence:</strong> {html.escape(prefix)}{'N/A' if not number_str else html.escape(number_str)}</p>
-            <p><strong>File Format:</strong> {html.escape(prefix)} followed by {len(number_str) if number_str else 0} digits ({len(leading_zeros) if number_str else 0} leading zeros)</p>
+            <p><strong>File Sequence:</strong> {html.escape(base_name)}</p>
+            <p><strong>Adjacent Files:</strong> 
+    """
+        
+        if prev_filename:
+            html_content += f"""Previous: <code>{html.escape(prev_filename)}</code><br>"""
+        if next_filename:
+            html_content += f"""Next: <code>{html.escape(next_filename)}</code>"""
+        
+        html_content += f"""</p>
         </div>
     """
         
-        if ocr_mode:
+        if ocr_mode is True:
             html_content += """
         <div class="warning">
             <strong>⚠️ WARNING:</strong> This PDF has no text stream - using OCR (may have errors).
@@ -467,29 +463,8 @@ HTML files saved to: {output_dir}
         </div>
     """
         
-        # Add navigation
+        # BOTTOM NAVIGATION (same as top)
         html_content += nav_html
-        
-        # Footer navigation (duplicate for convenience)
-        if prev_link or next_link:
-            html_content += """
-        <div class="navigation">
-            <div class="nav-buttons">
-    """
-            if prev_link:
-                html_content += f"""            <a href="{html.escape(prev_link)}" class="nav-button prev">← Previous File</a>
-    """
-            
-            html_content += f"""            <a href="index.html" class="nav-button home">Index</a>
-    """
-            
-            if next_link:
-                html_content += f"""            <a href="{html.escape(next_link)}" class="nav-button next">Next File →</a>
-    """
-            
-            html_content += """        </div>
-        </div>
-    """
         
         html_content += """
     </body>
