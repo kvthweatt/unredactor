@@ -6,7 +6,7 @@ Requirements:
     pip install PyMuPDF pillow
 """
 
-import fitz  # PyMuPDF
+import pymupdf as fitz
 from PIL import Image, ImageTk
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog
