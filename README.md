@@ -13,6 +13,10 @@ Republishing altered documents is illegal, and you should not use this to do so.
 
 By using this tool you claim all legal liability for any documents you create with it.
 
+KNOWN ISSUE:  
+- This converts to PNG then back to PDF, causing the document to expand exponentially each time you change a box.  
+- Consequent to that, the font size remains the same so your box text gets smaller and smaller.
+
 The executable form was compiled with Nuitka in standalone mode.
 
 <img width="976" height="808" alt="image" src="https://github.com/user-attachments/assets/b7628f39-7115-4b4f-bd9c-f2977650501e" />
