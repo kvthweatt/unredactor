@@ -1,5 +1,5 @@
 # Un-Redactor
-A PDF editing tool that lets you put your own information over a redaction box.
+A PDF editing tool that lets you put your own information over a redaction box, and extract all text.
 
 This tool is for forensics purposes. It does not "recover" data truly destroyed by redaction tools.
 
