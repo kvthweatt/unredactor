@@ -13,9 +13,7 @@ Republishing altered documents is illegal, and you should not use this to do so.
 
 By using this tool you claim all legal liability for any documents you create with it.
 
-KNOWN ISSUE:  
-- This converts to PNG then back to PDF, causing the document to expand exponentially each time you change a box.  
-- Consequent to that, the font size remains the same so your box text gets smaller and smaller.
+Update: Added a "Unredact All" button to extract all text to check for weak redaction.
 
 The executable form was compiled with Nuitka, you may need to install [Python](https://www.python.org/) if you do not have it.
 
