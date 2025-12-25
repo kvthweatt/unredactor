@@ -455,7 +455,7 @@ HTML files saved to: {output_dir}
         </div>
     """
         
-        if ocr_mode is True:
+        if ocr_mode is False:
             html_content += """
         <div class="warning">
             <strong>⚠️ WARNING:</strong> This PDF has no text stream - using OCR (may have errors).
