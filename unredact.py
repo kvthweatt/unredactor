@@ -1,10 +1,12 @@
 """
 Written by Karac V. Thweatt
-Interactive PDF Black Box Replacer
+UnRedactor
 Click on a black box to select it, then replace all boxes of that size with white boxes containing text.
 
 Requirements:
-    pip install PyMuPDF pillow
+    pip install PyMuPDF pillow pdfplumber
+
+Some code borrowed from Lee Drake https://github.com/leedrake5/unredact
 """
 
 import fitz  # PyMuPDF
@@ -17,6 +19,7 @@ import numpy as np
 import os
 import glob
 import html
+import pdfplumber
 from pathlib import Path
 from datetime import datetime
 
@@ -54,6 +57,11 @@ class PDFBoxReplacer:
         
         self.page_label = tk.Label(toolbar, text="No PDF loaded")
         self.page_label.pack(side=tk.LEFT, padx=10)
+
+        tk.Button(toolbar, text="Side-by-Side Export", command=self.export_side_by_side, 
+                 bg="purple", fg="white").pack(side=tk.RIGHT, padx=2)
+        tk.Button(toolbar, text="White Overlay Export", command=self.export_overlay_white, 
+                 bg="orange", fg="white").pack(side=tk.RIGHT, padx=2)
         
         tk.Button(toolbar, text="Replace Boxes", command=self.replace_boxes, 
                  bg="green", fg="white").pack(side=tk.RIGHT, padx=2)
@@ -945,6 +953,223 @@ HTML files saved to: {output_dir}
         print(f"Found {len(self.all_boxes)} boxes using image processing")
         for i, box in enumerate(self.all_boxes):
             print(f"  Box {i}: {box['width']}x{box['height']} at ({box['rect'].x0:.1f}, {box['rect'].y0:.1f})")
+
+### CODE BORROWED - CREDIT: Lee Drake https://www.github.com/leedrake5
+    def group_words_into_lines(self, words, line_tol=2.0):
+        """Cluster words into lines using their 'top' coordinate."""
+        if not words:
+            return []
+
+        words = sorted(words, key=lambda w: (float(w.get("top", 0.0)), float(w.get("x0", 0.0))))
+
+        lines = []
+        current = []
+        current_top = None
+
+        for w in words:
+            top = float(w.get("top", 0.0))
+            if current_top is None:
+                current_top = top
+                current = [w]
+                continue
+
+            if abs(top - current_top) <= line_tol:
+                current.append(w)
+                current_top = (current_top * (len(current) - 1) + top) / len(current)
+            else:
+                lines.append(current)
+                current = [w]
+                current_top = top
+
+        if current:
+            lines.append(current)
+
+        return lines
+
+    def build_line_text(self, line_words, space_unit_pts=3.0, min_spaces=1):
+        """Rebuild a line by inserting spaces based on x-gaps."""
+        line_words = sorted(line_words, key=lambda w: float(w.get("x0", 0.0)))
+
+        sizes = []
+        for w in line_words:
+            s = w.get("size", None)
+            if s is not None:
+                try:
+                    sizes.append(float(s))
+                except Exception:
+                    pass
+
+        if sizes:
+            sizes_sorted = sorted(sizes)
+            font_size = float(sizes_sorted[len(sizes_sorted) // 2])
+        else:
+            hs = []
+            for w in line_words:
+                top = float(w.get("top", 0.0))
+                bottom = float(w.get("bottom", top + 10.0))
+                hs.append(max(6.0, bottom - top))
+            hs.sort()
+            font_size = float(hs[len(hs) // 2]) if hs else 10.0
+
+        top_med = sorted([float(w.get("top", 0.0)) for w in line_words])[len(line_words) // 2]
+
+        first_x0 = float(line_words[0].get("x0", 0.0))
+        last_x1 = float(line_words[0].get("x1", line_words[0].get("x0", 0.0)))
+        prev_x1 = float(line_words[0].get("x1", line_words[0].get("x0", 0.0)))
+
+        parts = [line_words[0].get("text", "")]
+
+        for w in line_words[1:]:
+            text = w.get("text", "")
+            x0 = float(w.get("x0", 0.0))
+            x1 = float(w.get("x1", x0))
+
+            gap = x0 - prev_x1
+
+            if gap > 0:
+                n_spaces = int(round(gap / max(0.5, space_unit_pts)))
+                n_spaces = max(min_spaces, n_spaces)
+                parts.append(" " * n_spaces)
+            else:
+                parts.append(" " if gap > -space_unit_pts * 0.3 else "")
+
+            parts.append(text)
+            prev_x1 = max(prev_x1, x1)
+            last_x1 = max(last_x1, x1)
+
+        return "".join(parts), first_x0, last_x1, top_med, font_size
+
+    def extract_lines_with_positions(self, pdf_path, line_tol=2.0, space_unit_pts=3.0, min_spaces=1):
+        """Returns list per page: [(line_text, x0, top, font_size), ...]"""
+        pages_lines = []
+
+        with pdfplumber.open(pdf_path) as pdf:
+            for page in pdf.pages:
+                words = page.extract_words(
+                    keep_blank_chars=False,
+                    use_text_flow=False,
+                    extra_attrs=["size", "fontname"]
+                )
+
+                lines = self.group_words_into_lines(words, line_tol=line_tol)
+
+                out = []
+                for lw in lines:
+                    line_text, x0, x1, top, font_size = self.build_line_text(
+                        lw, space_unit_pts=space_unit_pts, min_spaces=min_spaces
+                    )
+                    if line_text.strip():
+                        out.append((line_text, x0, top, font_size))
+                pages_lines.append(out)
+
+        return pages_lines
+
+    def make_side_by_side(self, input_pdf, output_pdf, line_tol=2.0, space_unit_pts=3.0, min_spaces=1):
+        """Create side-by-side PDF: original left, reconstructed text right"""
+        src = fitz.open(input_pdf)
+        out = fitz.open()
+
+        lines_per_page = self.extract_lines_with_positions(
+            input_pdf, line_tol=line_tol, space_unit_pts=space_unit_pts, min_spaces=min_spaces
+        )
+
+        for i, src_page in enumerate(src):
+            rect = src_page.rect
+            w, h = rect.width, rect.height
+
+            new_page = out.new_page(width=2 * w, height=h)
+
+            # Left: embed original page
+            new_page.show_pdf_page(fitz.Rect(0, 0, w, h), src, i)
+
+            # Right: draw rebuilt text
+            x_off = w
+            page_lines = lines_per_page[i] if i < len(lines_per_page) else []
+
+            for (txt, x0, top, font_size) in page_lines:
+                y = float(top) + float(font_size) * 0.85
+
+                new_page.insert_text(
+                    fitz.Point(x_off + float(x0), float(y)),
+                    txt,
+                    fontsize=float(font_size),
+                    fontname="helv",
+                    color=(0, 0, 0),
+                    overlay=True
+                )
+
+        out.save(output_pdf)
+        out.close()
+        src.close()
+
+    def make_overlay_white(self, input_pdf, output_pdf, line_tol=2.0, space_unit_pts=3.0, min_spaces=1):
+        """Overlay extracted text in white on original PDF"""
+        doc = fitz.open(input_pdf)
+
+        lines_per_page = self.extract_lines_with_positions(
+            input_pdf, line_tol=line_tol, space_unit_pts=space_unit_pts, min_spaces=min_spaces
+        )
+
+        for i, page in enumerate(doc):
+            page_lines = lines_per_page[i] if i < len(lines_per_page) else []
+            for (txt, x0, top, font_size) in page_lines:
+                y = float(top) + float(font_size) * 0.85
+                page.insert_text(
+                    fitz.Point(float(x0), float(y)),
+                    txt,
+                    fontsize=float(font_size),
+                    fontname="helv",
+                    color=(1, 1, 1),   # white
+                    overlay=True
+                )
+
+        doc.save(output_pdf)
+        doc.close()
+
+    def export_side_by_side(self):
+        """Add this as a button callback - exports side-by-side comparison"""
+        if not self.pdf_doc:
+            messagebox.showwarning("Warning", "No PDF loaded")
+            return
+        
+        output_path = filedialog.asksaveasfilename(
+            title="Save side-by-side PDF as",
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")]
+        )
+        
+        if not output_path:
+            return
+        
+        try:
+            current_path = self.pdf_doc.name
+            self.make_side_by_side(current_path, output_path)
+            messagebox.showinfo("Success", f"Side-by-side PDF saved!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {str(e)}")
+
+    def export_overlay_white(self):
+        """Add this as a button callback - exports white text overlay"""
+        if not self.pdf_doc:
+            messagebox.showwarning("Warning", "No PDF loaded")
+            return
+        
+        output_path = filedialog.asksaveasfilename(
+            title="Save white overlay PDF as",
+            defaultextension=".pdf",
+            filetypes=[("PDF files", "*.pdf")]
+        )
+        
+        if not output_path:
+            return
+        
+        try:
+            current_path = self.pdf_doc.name
+            self.make_overlay_white(current_path, output_path)
+            messagebox.showinfo("Success", f"White overlay PDF saved!")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed: {str(e)}")
+### END BORROWED CODE
                     
     def draw_boxes(self):
         """Draw rectangles on canvas to show detected boxes"""
