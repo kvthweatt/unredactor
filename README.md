@@ -10,12 +10,6 @@ You can select a redaction box, and select all of the exact dimensions and repla
 # PLEASE STAR + SHARE THIS TOOL  
 It really helps get this in the hands of more people.
 
-I am not responsible for your use of this tool.
-
-Republishing altered documents is illegal, and you should not use this to do so.
-
-By using this tool you claim all legal liability for any documents you create with it.
-
 You can now view the results of this tool at www.uttcex.net/kvthweatt/unredactor
 
 Update: Added an "Auto Unredact" option!  
@@ -30,3 +24,9 @@ The executable form was compiled with Nuitka, you may need to install [Python](h
 <img width="889" height="720" alt="image" src="https://github.com/user-attachments/assets/9b365ab6-5297-4b0d-9f02-b59b293e2482" />
 <img width="1481" height="824" alt="image" src="https://github.com/user-attachments/assets/eaf936bd-ab55-460a-b61c-318f5d07b1a2" />
 <img width="1271" height="1004" alt="image" src="https://github.com/user-attachments/assets/5d4a8330-c328-436c-b38b-31faf430841c" />
+
+I am not responsible for your use of this tool.
+
+Republishing altered documents is illegal, and you should not use this to do so.
+
+By using this tool you claim all legal liability for any documents you create with it.
