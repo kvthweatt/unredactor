@@ -13,7 +13,7 @@ Republishing altered documents is illegal, and you should not use this to do so.
 
 By using this tool you claim all legal liability for any documents you create with it.
 
-You can now view the results of this tool [here](https:/www.uttcex.net/kvthweatt/unredactor)
+You can now view the results of this tool at https:/www.uttcex.net/kvthweatt/unredactor
 
 Update: Added an "Auto Unredact" option!  
 - Select a folder where your PDF files are located, and an HTML output folder.
