@@ -18,9 +18,6 @@ Update: Added an "Auto Unredact" option!
 - Automatically attempts to extract all text streams by raw text extraction and OCR.
 - Creates an index.html for easy navigation!
 
-Known Issue:
-- HTML page traversal logic is incorrect. Missing documents cause breaks in navigation.
-
 The executable form was compiled with Nuitka, you may need to install [Python](https://www.python.org/) if you do not have it.
 
 <img width="976" height="808" alt="image" src="https://github.com/user-attachments/assets/b7628f39-7115-4b4f-bd9c-f2977650501e" />
