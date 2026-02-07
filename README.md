@@ -1,7 +1,7 @@
 # Un-Redactor
 A PDF editing tool that lets you unredact, put your own information over a redaction box, and extract all text.
 
-This tool is for forensics purposes. It does not "recover" data truly destroyed by redaction tools.
+This tool is for forensics purposes. It does not "recover" data truly destroyed by redaction tools. It can process large data sets and convert all at once to a HTML pages with a site index.
 
 What it **does** do is allow you to **write over** a redaction box. Like white-out.
 
